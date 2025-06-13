@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="en">
 <head>
-    <meta charset="utf-t">
+    <meta charset="utf-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="initial-scale=1,user-scalable=no,maximum-scale=1,width=device-width">
     <meta name="mobile-web-app-capable" content="yes">
@@ -16,7 +16,6 @@
         padding: 0;
         margin: 0;
     }
-    /* Style untuk pemilih bulan */
     .month-selector {
         position: absolute;
         top: 10px;
@@ -26,6 +25,18 @@
         padding: 5px;
         border-radius: 5px;
         border: 1px solid #ccc;
+    }
+    .legend {
+        line-height: 18px;
+        color: #555;
+    }
+    .legend i {
+        width: 18px;
+        height: 18px;
+        float: left;
+        margin-right: 8px;
+        opacity: 0.9;
+        border: 1px solid #333;
     }
     </style>
     <title>Peta Ketahanan Pangan</title>
@@ -50,7 +61,8 @@
     
     <script src="data/2025_03_1.js"></script>
     <script src="data/2025_02_2.js"></script>
-    <script src="data/2025_03_3.js"></script> <script src="data/2024_12_4.js"></script>
+    <script src="data/2025_03_3.js"></script>
+    <script src="data/2024_12_4.js"></script>
     <script src="data/2024_11_5.js"></script>
     <script src="data/2024_10_6.js"></script>
     <script src="data/2024_09_7.js"></script>
@@ -66,61 +78,84 @@
 
     <script>
     var map = L.map('map', {
-        zoomControl: true, // Mengaktifkan kontrol zoom default
+        zoomControl: true,
         maxZoom: 28,
         minZoom: 1
     }).fitBounds([[-7.486572866142287,111.90147368643292],[-6.829772583212255,112.95040675283735]]);
     
     var hash = new L.Hash(map);
     map.attributionControl.setPrefix('<a href="https://github.com/tomchadwin/qgis2web" target="_blank">qgis2web</a> &middot; <a href="https://leafletjs.com" title="A JS library for interactive maps">Leaflet</a> &middot; <a href="https://qgis.org">QGIS</a>');
-    var autolinker = new Autolinker({truncate: {length: 30, location: 'smart'}});
 
-    // BASEMAPS (Peta Dasar)
     var googleSatellite = L.tileLayer('https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}', {
         opacity: 1.0,
         attribution: 'Google Satellite',
     });
-    googleSatellite.addTo(map); // Menjadi basemap default
+    googleSatellite.addTo(map);
 
     var googleMaps = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         opacity: 1.0,
         attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
     });
 
-    // FUNGSI GAYA DAN POPUP (dibuat generik agar bisa dipakai ulang)
+    // FUNGSI GAYA (WARNA ASLI) DAN INTERAKSI
     function styleKlaster(feature) {
         switch(String(feature.properties['Peringkat_'])) {
-            case '1': return { fillColor: '#d7191c', weight: 1.0, color: '#232323', fillOpacity: 0.8 }; // Merah: Rentan
-            case '2': return { fillColor: '#fdae61', weight: 1.0, color: '#232323', fillOpacity: 0.8 }; // Oranye: Transisi
-            case '3': return { fillColor: '#1a9641', weight: 1.0, color: '#232323', fillOpacity: 0.8 }; // Hijau: Tangguh
-            default: return { fillColor: '#adb5bd', weight: 1.0, color: '#232323', fillOpacity: 0.7 }; // Abu-abu: Default
+            case '1': return { fillColor: 'rgba(215,25,28,1.0)', weight: 1.0, color: '#333333', fillOpacity: 0.8 };
+            case '2': return { fillColor: 'rgba(254,201,128,1.0)', weight: 1.0, color: '#333333', fillOpacity: 0.8 };
+            case '3': return { fillColor: 'rgba(199,232,173,1.0)', weight: 1.0, color: '#333333', fillOpacity: 0.8 };
+            default: return { fillColor: 'rgba(200,200,200,1.0)', weight: 1.0, color: '#333333', fillOpacity: 0.7 };
         }
     }
-
+    
+    // FUNGSI UNTUK SOROT (HOVER) DAN POPUP
     function onEachFeatureKlaster(feature, layer) {
-        var popupContent = '<h4>Klaster Ketahanan Pangan</h4>' +
-                           '<b>Kecamatan:</b> ' + feature.properties.WADMKC + '<br>' +
-                           '<b>Profil:</b> ' + feature.properties.Profil_202 + '<br>' +
-                           '<b>Peringkat:</b> ' + feature.properties.Peringkat_ ;
+        // Konten Pop-up baru
+        var popupContent = '<table>' +
+            '<tr><th scope="row">Kabupaten</th><td>' + (feature.properties.WADMKK || '-') + '</td></tr>' +
+            '<tr><th scope="row">Kecamatan</th><td>' + (feature.properties.WADMKC || '-') + '</td></tr>' +
+            '<tr><th scope="row">Desa</th><td>' + (feature.properties.WADMKD || '-') + '</td></tr>' +
+            '<tr><th scope="row">Indeks Ketersediaan</th><td>' + (feature.properties.Ketersedia || '-') + '</td></tr>' +
+            '<tr><th scope="row">Indeks Akses</th><td>' + (feature.properties.Akses || '-') + '</td></tr>' +
+            '<tr><th scope="row">Indeks Pemanfaatan</th><td>' + (feature.properties.Pemanfaata || '-') + '</td></tr>' +
+            '<tr><th scope="row">IKP</th><td>' + (feature.properties.IKP || '-') + '</td></tr>' +
+            '<tr><th scope="row">Rekomendasi</th><td>' + (feature.properties.Rekomendas || '-') + '</td></tr>' +
+            '</table>';
         layer.bindPopup(popupContent);
+
+        // Event Listener untuk hover
+        layer.on({
+            mouseover: function(e) {
+                var layer = e.target;
+                layer.setStyle({
+                    weight: 2,
+                    color: '#FFFF00', // Kuning
+                    fillColor: '#FFFF00',
+                    fillOpacity: 0.6
+                });
+                if (!L.Browser.ie && !L.Browser.opera && !L.Browser.edge) {
+                    layer.bringToFront();
+                }
+            },
+            mouseout: function(e) {
+                // Mengembalikan style ke semula dengan merujuk ke layer group
+                currentMonthLayer.resetStyle(e.target);
+            }
+        });
     }
     
-    // LAYER BATAS KECAMATAN
     var layer_BatasKecamatan = L.geoJson(json_BatasKecamatan_17, {
         style: {
-            color: '#333333',
-            weight: 1.5,
-            opacity: 0.8,
+            color: '#000000',
+            weight: 2,
+            opacity: 1,
             fillOpacity: 0
         },
-        interactive: false // Tidak bisa di-klik
+        interactive: false
     });
     
-    // MENGORGANISIR DATA BULANAN
     var monthlyData = {
-        '2025-03': json_2025_03_1, // Anda mungkin perlu memperbaiki nama variabel ini sesuai file .js
+        '2025-03': json_2025_03_1,
         '2025-02': json_2025_02_2,
-        '2025-01': json_2025_03_3, 
         '2024-12': json_2024_12_4,
         '2024-11': json_2024_11_5,
         '2024-10': json_2024_10_6,
@@ -138,7 +173,6 @@
     var currentMonthLayer;
     var select = document.getElementById('month-select');
 
-    // Mengisi dropdown dengan pilihan bulan
     for (var month in monthlyData) {
         var option = document.createElement('option');
         option.value = month;
@@ -146,7 +180,6 @@
         select.appendChild(option);
     }
     
-    // Fungsi untuk mengubah layer bulan
     function changeMonth(month) {
         if (currentMonthLayer) {
             map.removeLayer(currentMonthLayer);
@@ -155,20 +188,17 @@
             style: styleKlaster,
             onEachFeature: onEachFeatureKlaster
         });
-        currentMonthLayer.addTo(map);
+        currentMonthLayer.addTo(map).bringToBack();
     }
     
-    // Event listener untuk dropdown
     select.addEventListener('change', function() {
         changeMonth(this.value);
     });
 
-    // Menampilkan data bulan pertama saat peta dimuat
     var firstMonth = Object.keys(monthlyData)[0];
     select.value = firstMonth;
     changeMonth(firstMonth);
 
-    // KONTROL LAYER
     var baseMaps = {
         "Google Satellite": googleSatellite,
         "Google Maps": googleMaps
@@ -181,19 +211,20 @@
         collapsed: false
     }).addTo(map);
 
-    // MEMBUAT LEGENDA
     var legend = L.control({position: 'bottomright'});
     legend.onAdd = function (map) {
         var div = L.DomUtil.create('div', 'info legend'),
-            grades = [1, 2, 3],
             labels = ['<strong>Klaster Ketahanan Pangan</strong>'],
             profiles = {'1': 'Rentan', '2': 'Transisi', '3': 'Tangguh'},
-            colors = {'1': '#d7191c', '2': '#fdae61', '3': '#1a9641'};
+            colors = {
+                '1': 'rgba(215,25,28,1.0)', 
+                '2': 'rgba(254,201,128,1.0)', 
+                '3': 'rgba(199,232,173,1.0)'
+            };
         
-        for (var i = 0; i < grades.length; i++) {
-            var grade = grades[i];
+        for (var key in profiles) {
             labels.push(
-                '<i style="background:' + colors[grade] + '"></i> ' + profiles[grade]
+                '<i style="background:' + colors[key] + '"></i> ' + profiles[key]
             );
         }
         div.innerHTML = labels.join('<br>');
