@@ -18,8 +18,8 @@
     }
     .month-selector {
         position: absolute;
-        top: 10px;
-        left: 50px;
+        top: 80px; /* Diturunkan lagi agar tidak tumpang tindih */
+        left: 10px;
         z-index: 1000;
         background-color: white;
         padding: 5px;
@@ -38,10 +38,25 @@
         opacity: 0.9;
         border: 1px solid #333;
     }
+    .map-title {
+        position: absolute;
+        top: 10px;
+        left: 50%;
+        transform: translateX(-50%);
+        z-index: 1000;
+        background-color: rgba(255, 255, 255, 0.85);
+        padding: 8px 15px;
+        border-radius: 5px;
+        font-size: 1.2em; /* Ukuran font disesuaikan */
+        font-weight: bold;
+        color: #333;
+        text-align: center;
+    }
     </style>
-    <title>Peta Ketahanan Pangan</title>
+    <title>Dasbor Ketahanan Pangan</title>
 </head>
 <body>
+    <div class="map-title">Dasbor Ketahanan Pangan untuk Sistem Peringatan Dini<br>Provinsi Jawa Timur - Kabupaten Lamongan</div>
     <div id="map"></div>
     
     <div class="month-selector">
@@ -74,6 +89,7 @@
     <script src="data/2024_03_13.js"></script>
     <script src="data/2024_02_14.js"></script>
     <script src="data/2024_01_15.js"></script>
+    <script src="data/BatasKabupaten_16.js"></script>
     <script src="data/BatasKecamatan_17.js"></script>
 
     <script>
@@ -81,11 +97,12 @@
         zoomControl: true,
         maxZoom: 28,
         minZoom: 1
-    }).fitBounds([[-7.486572866142287,111.90147368643292],[-6.829772583212255,112.95040675283735]]);
-    
-    var hash = new L.Hash(map);
-    map.attributionControl.setPrefix('<a href="https://github.com/tomchadwin/qgis2web" target="_blank">qgis2web</a> &middot; <a href="https://leafletjs.com" title="A JS library for interactive maps">Leaflet</a> &middot; <a href="https://qgis.org">QGIS</a>');
+    });
 
+    var hash = new L.Hash(map);
+    map.attributionControl.setPrefix('<a href="https://github.com/tomchadwin/qgis2web" target="_blank">qgis2web</a> &middot; <a href="https://leafletjs.com" title="A JS library for interactive maps">Leaflet</a>');
+
+    // PETA DASAR
     var googleSatellite = L.tileLayer('https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}', {
         opacity: 1.0,
         attribution: 'Google Satellite',
@@ -97,19 +114,18 @@
         attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
     });
 
-    // FUNGSI GAYA (WARNA ASLI) DAN INTERAKSI
+    // FUNGSI GAYA DAN INTERAKSI UNTUK KLASTER
     function styleKlaster(feature) {
+        // Garis batas poligon indeks dibuat lebih tebal (weight: 2)
         switch(String(feature.properties['Peringkat_'])) {
-            case '1': return { fillColor: 'rgba(215,25,28,1.0)', weight: 1.0, color: '#333333', fillOpacity: 0.8 };
-            case '2': return { fillColor: 'rgba(254,201,128,1.0)', weight: 1.0, color: '#333333', fillOpacity: 0.8 };
-            case '3': return { fillColor: 'rgba(199,232,173,1.0)', weight: 1.0, color: '#333333', fillOpacity: 0.8 };
-            default: return { fillColor: 'rgba(200,200,200,1.0)', weight: 1.0, color: '#333333', fillOpacity: 0.7 };
+            case '1': return { fillColor: 'rgba(215,25,28,1.0)', weight: 2, color: '#000000', fillOpacity: 0.8 };
+            case '2': return { fillColor: 'rgba(254,201,128,1.0)', weight: 2, color: '#000000', fillOpacity: 0.8 };
+            case '3': return { fillColor: 'rgba(199,232,173,1.0)', weight: 2, color: '#000000', fillOpacity: 0.8 };
+            default: return { fillColor: 'rgba(200,200,200,1.0)', weight: 2, color: '#000000', fillOpacity: 0.7 };
         }
     }
     
-    // FUNGSI UNTUK SOROT (HOVER) DAN POPUP
     function onEachFeatureKlaster(feature, layer) {
-        // Konten Pop-up baru
         var popupContent = '<table>' +
             '<tr><th scope="row">Kabupaten</th><td>' + (feature.properties.WADMKK || '-') + '</td></tr>' +
             '<tr><th scope="row">Kecamatan</th><td>' + (feature.properties.WADMKC || '-') + '</td></tr>' +
@@ -122,37 +138,50 @@
             '</table>';
         layer.bindPopup(popupContent);
 
-        // Event Listener untuk hover
         layer.on({
             mouseover: function(e) {
                 var layer = e.target;
                 layer.setStyle({
-                    weight: 2,
-                    color: '#FFFF00', // Kuning
+                    weight: 3,
+                    color: '#FFFF00',
                     fillColor: '#FFFF00',
-                    fillOpacity: 0.6
+                    fillOpacity: 0.7
                 });
                 if (!L.Browser.ie && !L.Browser.opera && !L.Browser.edge) {
                     layer.bringToFront();
                 }
             },
             mouseout: function(e) {
-                // Mengembalikan style ke semula dengan merujuk ke layer group
                 currentMonthLayer.resetStyle(e.target);
             }
         });
     }
-    
-    var layer_BatasKecamatan = L.geoJson(json_BatasKecamatan_17, {
+
+    // LAYER BATAS ADMINISTRASI
+    var layer_BatasKabupaten = L.geoJson(json_BatasKabupaten_16, {
         style: {
             color: '#000000',
-            weight: 2,
+            weight: 4, // Garis batas kabupaten paling tebal
+            opacity: 1,
+            fillOpacity: 0
+        },
+        interactive: false
+    }).addTo(map);
+
+    var layer_BatasKecamatan = L.geoJson(json_BatasKecamatan_17, {
+        style: {
+            color: '#333333',
+            weight: 1.5, // Garis batas kecamatan lebih tipis
             opacity: 1,
             fillOpacity: 0
         },
         interactive: false
     });
+
+    // SET PETA KE TENGAH KABUPATEN LAMONGAN SECARA OTOMATIS
+    map.fitBounds(layer_BatasKabupaten.getBounds());
     
+    // LOGIKA PEMILIH BULAN
     var monthlyData = {
         '2025-03': json_2025_03_1,
         '2025-02': json_2025_02_2,
@@ -169,16 +198,14 @@
         '2024-02': json_2024_02_14,
         '2024-01': json_2024_01_15
     };
-
     var currentMonthLayer;
     var select = document.getElementById('month-select');
-
-    for (var month in monthlyData) {
+    Object.keys(monthlyData).sort().reverse().forEach(function(month) {
         var option = document.createElement('option');
         option.value = month;
         option.innerHTML = month;
         select.appendChild(option);
-    }
+    });
     
     function changeMonth(month) {
         if (currentMonthLayer) {
@@ -191,19 +218,16 @@
         currentMonthLayer.addTo(map).bringToBack();
     }
     
-    select.addEventListener('change', function() {
-        changeMonth(this.value);
-    });
+    select.addEventListener('change', function() { changeMonth(this.value); });
+    changeMonth(select.value);
 
-    var firstMonth = Object.keys(monthlyData)[0];
-    select.value = firstMonth;
-    changeMonth(firstMonth);
-
+    // KONTROL LAYER DAN LEGENDA
     var baseMaps = {
         "Google Satellite": googleSatellite,
-        "Google Maps": googleMaps
+        "Peta Dasar": googleMaps
     };
     var overlayMaps = {
+        "Batas Kabupaten": layer_BatasKabupaten,
         "Batas Kecamatan": layer_BatasKecamatan
     };
     L.control.layers(baseMaps, overlayMaps, {
@@ -214,7 +238,6 @@
     var legend = L.control({position: 'bottomright'});
     legend.onAdd = function (map) {
         var div = L.DomUtil.create('div', 'info legend'),
-            labels = ['<strong>Klaster Ketahanan Pangan</strong>'],
             profiles = {'1': 'Rentan', '2': 'Transisi', '3': 'Tangguh'},
             colors = {
                 '1': 'rgba(215,25,28,1.0)', 
@@ -222,16 +245,13 @@
                 '3': 'rgba(199,232,173,1.0)'
             };
         
+        div.innerHTML += '<strong>Klaster Ketahanan Pangan</strong><br>';
         for (var key in profiles) {
-            labels.push(
-                '<i style="background:' + colors[key] + '"></i> ' + profiles[key]
-            );
+            div.innerHTML += '<i style="background:' + colors[key] + '"></i> ' + profiles[key] + '<br>';
         }
-        div.innerHTML = labels.join('<br>');
         return div;
     };
     legend.addTo(map);
-
     </script>
 </body>
 </html>
